@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+"OZ_serial",
+"OZ_parallel",
+]

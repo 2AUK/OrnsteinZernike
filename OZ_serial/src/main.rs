@@ -1,11 +1,12 @@
 use ndarray::Array1;
 
 pub trait Potential {
-    fn calculate(&self, r: Array1<f64>) -> Array1<f64>;
+    fn calculate(&self, r: &Array1<f64>) -> Array1<f64>;
 }
 pub trait Closure {
-    fn calculate(&self, u: Array1<f64>, t: Array1<f64>, B: f64) -> Array1<f64>;
+    fn calculate(&self, u: &Array1<f64>, t: &Array1<f64>, B: f64) -> Array1<f64>;
 }
+
 pub struct LennardJones {
     pub sigma: f64,
     pub epsilon: f64,
@@ -18,7 +19,7 @@ impl LennardJones {
 }
 
 impl Potential for LennardJones {
-    fn calculate(&self, r: Array1<f64>) -> Array1<f64> {
+    fn calculate(&self, r: &Array1<f64>) -> Array1<f64> {
         let mut ir = self.sigma / r;
         let mut ir6 = ir.view_mut();
         ir6.mapv_inplace(|a| a.powf(6.0));
@@ -28,13 +29,14 @@ impl Potential for LennardJones {
         4.0 * self.epsilon * (ir12.to_owned() - ir6.to_owned())
     }
 }
+
 pub struct HyperNettedChain {}
 
 impl Closure for HyperNettedChain {
-    fn calculate(&self, u: Array1<f64>, t: Array1<f64>, B: f64) -> Array1<f64> {
-        let mut exponent = -B * &u + &t;
+    fn calculate(&self, u: &Array1<f64>, t: &Array1<f64>, B: f64) -> Array1<f64> {
+        let mut exponent = -B * u + t;
         exponent.mapv_inplace(|a| a.exp());
-        exponent - 1.0 - &t
+        exponent - 1.0 - t
     }
 }
 pub enum PotentialType {}
@@ -45,6 +47,7 @@ pub struct OZ {
     clos: ClosureType,
 }
 pub struct data {
+    kT: f64,
     T: f64,
     p: f64,
     B: f64,
@@ -53,4 +56,7 @@ pub struct data {
     h: Array1<f64>,
     t: Array1<f64>,
 }
+
+impl data { }
+
 fn main() {}

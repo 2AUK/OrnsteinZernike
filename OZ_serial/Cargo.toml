@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 ndarray = { version = "0.15.6", features = ["blas"] }
+plotly = { version = "0.8.3", features = ["ndarray"] }
 rustdct = "0.7.1"

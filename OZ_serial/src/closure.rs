@@ -14,8 +14,9 @@ impl HyperNettedChain {
 
 impl Closure for HyperNettedChain {
     fn calculate(&self, r: &Array1<f64>, u: &Array1<f64>, t: &Array1<f64>, B: f64) -> Array1<f64> {
-        let mut exponent = -B * u + t;
+        let tr = t / r;
+        let mut exponent = -B * u + &tr;
         exponent.mapv_inplace(|a| a.exp());
-        r * (exponent - 1.0 - t)
+        r * (exponent - 1.0 - &tr)
     }
 }

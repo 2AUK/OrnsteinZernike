@@ -12,11 +12,49 @@ use crate::closure::{Closure, HyperNettedChain};
 use crate::data::Data;
 use crate::grid::Grid;
 
+pub struct OZ_builder<'a, P: Potential, C: Closure> {
+    grid: Option<&'a Grid>,
+    data: Option<Data>,
+    pot: Option<P>,
+    clos: Option<C>,
+}
+
+impl<'a, P: Potential, C: Closure> OZ_builder<'a, P, C> {
+    pub fn data(mut self, data: Data) -> Self {
+        self.data = Some(data);
+        self
+    }
+    
+    pub fn grid(mut self, grid: &'a Grid) -> Self {
+        self.grid = Some(grid);
+        self
+    }
+
+    pub fn pot(mut self, pot: P) -> Self {
+        self.pot = Some(pot);
+        self
+    }
+
+    pub fn clos(mut self, clos: C) -> Self {
+        self.clos = Some(clos);
+        self
+    }
+
+    pub fn build(self) -> OZ<'a, P, C> {
+        OZ {
+            grid: self.grid.expect("missing grid"),
+            data: self.data.expect("missing data struct"),
+            pot: self.pot.expect("missing potential"),
+            clos: self.clos.expect("missing closure"),
+        }
+    }
+}
+
 pub struct OZ<'a, P: Potential, C: Closure> {
-    grid: &'a Grid,
-    data: Data,
-    pot: P,
-    clos: C,
+    pub grid: &'a Grid,
+    pub data: Data,
+    pub pot: P,
+    pub clos: C,
 }
 
 impl<'a, P: Potential, C: Closure> OZ<'a, P, C> {
@@ -27,6 +65,17 @@ impl<'a, P: Potential, C: Closure> OZ<'a, P, C> {
             pot,
             clos,
         }
+    }
+
+    pub fn build() -> OZ_builder<'a, P, C> {
+        OZ_builder { grid: None, data: None, pot: None, clos: None }
+    }
+
+    pub fn initialise(mut self, initial_guess: Array1<f64>) -> Self {
+        let pot = self.pot.calculate(&self.grid.ri);
+        self.data.u = pot;
+        self.data.c = initial_guess;
+        self
     }
     
     fn int_eq(self) -> Array1<f64> {
@@ -44,19 +93,21 @@ impl<'a, P: Potential, C: Closure> OZ<'a, P, C> {
     }
 
     fn clean_up(mut self) {
-        todo!();
+        self.data.c = self.data.c / &self.grid.ri;
+        self.data.t = self.data.t / &self.grid.ri;
+        self.data.h = self.data.t + self.data.c;
     }
 }
 
 
 fn main() {
+    // Initialise grid
     let grid = Grid::new(1024, 10.24);
-    let lj = LennardJones::new(3.4, 120.0);
-    let T = 1.0;
 
-    let r = &grid.ri.to_vec();
-    let lj_r = (lj.calculate(&grid.ri) / T).to_vec();
+    // Set an initial guess for iteration
+    let initial_guess: Array1<f64> = Array1::zeros(1024);
 
+    // Construct a the data required for the problem
     let problem = Data::build()
     .boltzmann_constant(1.0)
     .temperature(85.0)
@@ -64,9 +115,13 @@ fn main() {
     .npts(grid.npts)
     .build();
 
-    println!("{:?}", &problem);
-
-    let OZ_problem = OZ::new(&grid, problem, lj, HyperNettedChain::new());
-
+    // Construct the algorithm for the problem and initialise the data
+    let OZ_problem = OZ::build()
+    .grid(&grid)
+    .pot(LennardJones::new(3.4, 120.0))
+    .clos(HyperNettedChain::new())
+    .data(problem)
+    .build()
+    .initialise(initial_guess);
 
 }

@@ -116,7 +116,7 @@ fn main() {
     .build();
 
     // Construct the algorithm for the problem and initialise the data
-    let OZ_problem = OZ::build()
+    let OZ_method = OZ::build()
     .grid(&grid)
     .pot(LennardJones::new(3.4, 120.0))
     .clos(HyperNettedChain::new())

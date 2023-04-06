@@ -1,158 +1,57 @@
 use ndarray::{Array1, Array};
-use plotly::common::Title;
-use plotly::layout::{Axis, Layout};
-use plotly::{Plot, Scatter};
-use std::f64::consts::PI;
+use rustdct::DctPlanner;
 
-pub trait Potential {
-    fn calculate(&self, r: &Array1<f64>) -> Array1<f64>;
-}
-pub trait Closure {
-    fn calculate(&self, u: &Array1<f64>, t: &Array1<f64>, B: f64) -> Array1<f64>;
-}
 
-pub struct LennardJones {
-    pub sigma: f64,
-    pub epsilon: f64,
-}
+pub mod potential;
+pub mod closure;
+pub mod data;
+pub mod grid;
 
-impl LennardJones {
-    pub fn new(sigma: f64, epsilon: f64) -> Self {
-        LennardJones { sigma, epsilon }
-    }
-}
+use crate::potential::{Potential, LennardJones};
+use crate::closure::{Closure, HyperNettedChain};
+use crate::data::Data;
+use crate::grid::Grid;
 
-impl Potential for LennardJones {
-    fn calculate(&self, r: &Array1<f64>) -> Array1<f64> {
-        let mut ir = self.sigma / r;
-        let mut ir6 = ir.view_mut();
-        ir6.mapv_inplace(|a| a.powf(6.0));
-        let mut ir12 = ir6.to_owned().clone();
-        ir12.mapv_inplace(|a| a.powf(2.0));
-
-        4.0 * self.epsilon * (ir12.to_owned() - ir6.to_owned())
-    }
-}
-
-pub struct HyperNettedChain {}
-
-impl Closure for HyperNettedChain {
-    fn calculate(&self, u: &Array1<f64>, t: &Array1<f64>, B: f64) -> Array1<f64> {
-        let mut exponent = -B * u + t;
-        exponent.mapv_inplace(|a| a.exp());
-        exponent - 1.0 - t
-    }
-}
-pub enum PotentialType {}
-pub enum ClosureType {}
-pub struct OZ<'a> {
+pub struct OZ<'a, P: Potential, C: Closure> {
     grid: &'a Grid,
     data: Data,
-    pot: PotentialType,
-    clos: ClosureType,
+    pot: P,
+    clos: C,
 }
-pub struct Grid {
-    pub npts: usize,
-    pub radius: f64,
-    pub dr: f64,
-    pub dk: f64,
-    pub ri: Array1<f64>,
-    pub ki: Array1<f64>,
-}
-impl Grid {
-    pub fn new(npts: usize, radius: f64) -> Self {
-        let dr: f64 = radius / npts as f64;
-        let dk: f64 = 2.0 * PI / (2.0 * npts as f64 * dr);
-        let ri: Array1<f64> = Array::range(0.5, npts as f64, 1.0) * dr;
-        let ki: Array1<f64> = Array::range(0.5, npts as f64, 1.0) * dk;
 
-        Grid {
-            npts,
-            radius,
-            dr,
-            dk,
-            ri,
-            ki,
+impl<'a, P: Potential, C: Closure> OZ<'a, P, C> {
+    pub fn new(grid: &'a Grid, data: Data, pot: P, clos: C) -> Self {
+        OZ {
+            grid,
+            data,
+            pot,
+            clos,
         }
     }
-}
-#[derive(Debug)]
-pub struct Data {
-    kT: f64,
-    T: f64,
-    p: f64,
-    B: f64,
-    u: Array1<f64>,
-    c: Array1<f64>,
-    h: Array1<f64>,
-    t: Array1<f64>,
-}
+    
+    fn int_eq(self) -> Array1<f64> {
+        let c = self.data.c.view();
+        let k = self.grid.ki.view();
+        let p = self.data.p;
 
-impl Data { 
-    pub fn build() -> DataBuilder {
-        DataBuilder {
-            kT: None,
-            T: None,
-            p: None,
-            npts: None,
-        }
+        let c2 = c.mapv(|a| a.powf(2.0));
+        let pc2 = p * c2;
+        let pc = p * &c;
+
+        let inv_term = 1.0 / (&k - &pc);
+
+        pc2 * inv_term
+    }
+
+    fn clean_up(mut self) {
+        todo!();
     }
 }
 
-pub struct DataBuilder {
-    kT: Option<f64>,
-    T: Option<f64>,
-    p: Option<f64>,
-    npts: Option<usize>,
-}
-
-impl DataBuilder {
-    pub fn boltzmann_constant(mut self, kT: f64) -> Self {
-        self.kT = Some(kT);
-        self
-    }
-
-    pub fn temperature(mut self, T: f64) -> Self {
-        self.T = Some(T);
-        self
-    }
-
-    pub fn density(mut self, p: f64) -> Self {
-        self.p = Some(p);
-        self
-    }
-
-    pub fn npts(mut self, npts: usize) -> Self {
-        self.npts = Some(npts);
-        self
-    }
-
-    pub fn build(self) -> Data {
-        let npts = self.npts.expect("missing npts; required for defining grid");
-        let kT =  self.kT.expect("missing Boltzmann constant; required for problem");
-        let T = self.T.expect("missing temperature; required for problem");
-        let p = self.p.expect("missing density; required for problem");
-        let B = 1.0 / kT / T;
-        let u = Array1::<f64>::zeros(npts);
-        let c = Array1::<f64>::zeros(npts);
-        let h = Array1::<f64>::zeros(npts);
-        let t = Array1::<f64>::zeros(npts);
-        Data {
-            kT,
-            T,
-            p,
-            B,
-            u,
-            c,
-            h,
-            t,
-        }
-    }
-}
 
 fn main() {
-    let grid = Grid::new(16384, 10.24);
-    let lj = LennardJones::new(3.16, 78.15);
+    let grid = Grid::new(1024, 10.24);
+    let lj = LennardJones::new(3.4, 120.0);
     let T = 1.0;
 
     let r = &grid.ri.to_vec();
@@ -160,10 +59,14 @@ fn main() {
 
     let problem = Data::build()
     .boltzmann_constant(1.0)
-    .temperature(300.0)
-    .density(0.2)
-    .npts(1024)
+    .temperature(85.0)
+    .density(0.021017479720736955)
+    .npts(grid.npts)
     .build();
 
-    println!("{:?}", problem);
+    println!("{:?}", &problem);
+
+    let OZ_problem = OZ::new(&grid, problem, lj, HyperNettedChain::new());
+
+
 }

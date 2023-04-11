@@ -4,6 +4,7 @@ use rustdct::DctPlanner;
 
 pub mod potential;
 pub mod closure;
+pub mod solver;
 pub mod data;
 pub mod grid;
 
@@ -107,7 +108,7 @@ fn main() {
     // Set an initial guess for iteration
     let initial_guess: Array1<f64> = Array1::zeros(1024);
 
-    // Construct a the data required for the problem
+    // Construct the data required for the problem
     let problem = Data::build()
     .boltzmann_constant(1.0)
     .temperature(85.0)

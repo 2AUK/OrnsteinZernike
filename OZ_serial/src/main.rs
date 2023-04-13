@@ -79,11 +79,13 @@ impl<'a, P: Potential, C: Closure> OZ<'a, P, C> {
         self
     }
     
-    fn int_eq(self) -> Array1<f64> {
+    fn int_eq(&self) -> Array1<f64> {
+        // TODO Implement the Fourier-Bessel transforms here
         let c = self.data.c.view();
         let k = self.grid.ki.view();
         let p = self.data.p;
 
+        // c(r) -> c(k)
         let c2 = c.mapv(|a| a.powf(2.0));
         let pc2 = p * c2;
         let pc = p * &c;
@@ -91,12 +93,36 @@ impl<'a, P: Potential, C: Closure> OZ<'a, P, C> {
         let inv_term = 1.0 / (&k - &pc);
 
         pc2 * inv_term
+        // t(k) -> t(r)
     }
 
     fn clean_up(mut self) {
         self.data.c = self.data.c / &self.grid.ri;
         self.data.t = self.data.t / &self.grid.ri;
         self.data.h = self.data.t + self.data.c;
+    }
+
+    pub fn solve(mut self, tol: f64, maxiter: u32) {
+        let i = 0;
+        let r = &self.grid.ri;
+        let u = self.pot.calculate(r);
+        'iter: loop {
+            // Store previous solution
+            // Want a copy of it
+            let c_prev = self.data.c.clone();
+            
+            // OZ operator:
+            // c -> t -> c_A -> c_new
+            // OZ equation:
+            // c -> t
+            let t = self.int_eq();
+            // Closure:
+            // t -> c_A
+            let c_A = self.clos.calculate(r, &u, &t, self.data.B);
+            // Mixing step for new solution:
+            // c_A -> c_new
+            let c_new = todo!();
+        }
     }
 }
 

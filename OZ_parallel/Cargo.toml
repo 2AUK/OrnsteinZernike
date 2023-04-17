@@ -6,3 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+mpi = { version = "0.6.0", features = ["derive"] }
+ndarray = { version = "0.15.6", features = ["blas"] }
+plotly = { version = "0.8.3", features = ["ndarray", "plotly_ndarray", "kaleido"] }
+rustdct = "0.7.1"

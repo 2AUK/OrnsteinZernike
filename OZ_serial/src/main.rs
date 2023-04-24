@@ -158,7 +158,7 @@ impl<'a, P: Potential, C: Closure, I: IntegralEquation> OZ<'a, P, C, I> {
             self.data.c = c_new;
 
         }
-        self
+        self.clean_up()
     }
 }
 
@@ -187,8 +187,7 @@ fn main() {
     .data(problem)
     .build()
     .initialise(initial_guess)
-    .solve(1e-5, 10000)
-    .clean_up();
+    .solve(1e-5, 10000);
 
     let gr = 1.0 + OZ_method.data.h;
 
